@@ -43,7 +43,7 @@ class GraphRenderer:
         self.visible = visible
         self.line_width = line_width
         self.point_size = point_size
-        self.amb_rot_speed = 60
+        self.amb_rot_speed = 30
         self._init_glfw()
         self._init_shaders()
         self._init_buffers()
@@ -64,6 +64,8 @@ class GraphRenderer:
         self.point_color = glm.vec3(0.2, 0.8, 1.0)
         self.edge_color = glm.vec3(0.7, 0.7, 0.7)
         
+        # 点
+        self.points = np.array([])
         
         # 交互回调（仅当 visible=True 时有效）
         if self.visible:
@@ -119,16 +121,30 @@ class GraphRenderer:
         layout (location = 0) in vec3 aPos;
         uniform mat4 view;
         uniform mat4 projection;
+        uniform vec3 camLookDir;
+        
+        out float v_proj; // 传递给 frag 的深度值
+
         void main() {
-            gl_Position = projection * view * vec4(aPos, 1.0);
+            vec4 viewPos = view * vec4(aPos, 1.0);
+            v_proj = dot(aPos, -camLookDir);
+            gl_Position = projection * viewPos;
         }
         """
+        
         fragment_src = """
         #version 330 core
         out vec4 FragColor;
+        in float v_proj; // 接收深度
+        
         uniform vec3 color;
+        uniform float near; // 最近可见距离
+        uniform float far;  // 最远可见距离（在此距离后完全变黑）
+
         void main() {
-            FragColor = vec4(color, 1.0);
+            float range = near - far;
+            float intensity = (range > 0.001) ? clamp((v_proj - far) / range, 0.0, 1.0) : 1.0;
+            FragColor = vec4(color * intensity, 1.0);
         }
         """
         vs = compileShader(vertex_src, GL_VERTEX_SHADER)
@@ -162,6 +178,7 @@ class GraphRenderer:
         glBindBuffer(GL_ARRAY_BUFFER, self.edge_vbo)
         glBufferData(GL_ARRAY_BUFFER, edges.nbytes, edges, GL_DYNAMIC_DRAW)
         self.edge_vertex_count = edges.shape[0]
+        self.points = points
         glBindBuffer(GL_ARRAY_BUFFER, 0)
 
     def get_view_matrix(self) -> glm.mat4:
@@ -188,24 +205,44 @@ class GraphRenderer:
         """执行一次渲染（不交换缓冲区）"""
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         aspect = self.window_width / self.window_height
+        
+        # 获取投影和视图矩阵
         projection = glm.perspective(glm.radians(self.fov), aspect, 0.1, 1000.0)
         view = self.get_view_matrix()
         
         glUseProgram(self.shader)
-        glUniformMatrix4fv(glGetUniformLocation(self.shader, "projection"), 
-                           1, GL_FALSE, glm.value_ptr(projection))
-        glUniformMatrix4fv(glGetUniformLocation(self.shader, "view"), 
-                           1, GL_FALSE, glm.value_ptr(view))
         
+        inv_view = glm.inverse(view)
+        cam_look_dir = glm.normalize(glm.vec3(-inv_view[2])) 
+        
+        if len(self.points) > 0:
+            dir_np = np.array([cam_look_dir.x, cam_look_dir.y, cam_look_dir.z])
+            projections = np.dot(self.points, dir_np)
+            near_val = np.max(projections)
+            far_val = np.min(projections)
+        else:
+            near_val, far_val = 10.0, -10.0 # 默认值
+
+        glUniform1f(glGetUniformLocation(self.shader, "near"), near_val/2) 
+        glUniform1f(glGetUniformLocation(self.shader, "far"), far_val*2) 
+        
+        glUniform3fv(glGetUniformLocation(self.shader, "camLookDir"), 1, glm.value_ptr(cam_look_dir))
+        glUniformMatrix4fv(glGetUniformLocation(self.shader, "projection"), 
+                        1, GL_FALSE, glm.value_ptr(projection))
+        glUniformMatrix4fv(glGetUniformLocation(self.shader, "view"), 
+                        1, GL_FALSE, glm.value_ptr(view))
+        
+        # 绘制边
         if hasattr(self, 'edge_vertex_count') and self.edge_vertex_count > 0:
             glUniform3fv(glGetUniformLocation(self.shader, "color"), 
-                         1, glm.value_ptr(self.edge_color))
+                        1, glm.value_ptr(self.edge_color))
             glBindVertexArray(self.edge_vao)
             glDrawArrays(GL_LINES, 0, self.edge_vertex_count)
         
+        # 绘制点
         if hasattr(self, 'point_count') and self.point_count > 0:
             glUniform3fv(glGetUniformLocation(self.shader, "color"), 
-                         1, glm.value_ptr(self.point_color))
+                        1, glm.value_ptr(self.point_color))
             glBindVertexArray(self.point_vao)
             glDrawArrays(GL_POINTS, 0, self.point_count)
         

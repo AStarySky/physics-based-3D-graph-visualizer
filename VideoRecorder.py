@@ -5,6 +5,7 @@ from typing import Optional
 import threading
 from collections import deque
 from enum import Enum
+import time
 
 class RenderPhase(Enum):
     GROWTH = "growth"

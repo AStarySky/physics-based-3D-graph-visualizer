@@ -20,24 +20,24 @@ sim = BFSGraphSimulation3D(
     adjacency_list=adj_list,
     root_node=0,
     k=0.05,
-    gravity=0.03,
+    gravity=0.01,
     damping=0.96,
     time_step=0.05,
     intensity=4
 )
 
-renderer = GraphRenderer(window_size=(1920, 1080), visible=True, line_width=0.5, point_size=2.0)  # 离屏
+renderer = GraphRenderer(window_size=(1920, 1080), visible=True, line_width=1.0, point_size=3.0)  # 离屏
 # 导出视频
-# renderer.render_video(
-#     sim,
-#     "my_graph.mp4",
-#     viewing_duration=10.0,   # 观赏10秒
-#     nodes_per_frame=4,       # 每帧添加4个节点
-#     physics_iter_per_frame=6,
-#     fps=60
-# )
-renderer.run_interactive(
-    sim
+renderer.render_video(
+    sim,
+    "Graph_with_depth.mp4",
+    viewing_duration=10.0,   # 观赏10秒
+    nodes_per_frame=4,       # 每帧添加4个节点
+    physics_iter_per_frame=6,
+    fps=60
 )
+# renderer.run_interactive(
+#     sim
+# )
 
 renderer.close()
