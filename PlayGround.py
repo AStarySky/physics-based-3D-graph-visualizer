@@ -102,10 +102,16 @@ start_toy16 = WalledSlidingToy(
     np.array([[0, 0], [3, 0], [0, 1], [1, 1], [4, 1], [5, 1], [2, 2], [0, 3], [2, 3], [1, 4], [4, 4], [2, 5], [4, 5]])
 )
 
-plt.imshow(start_toy16.get_image_matrix())
-plt.show()
+# toys = [start_toy, start_toy2, start_toy3, start_toy4, start_toy5, start_toy6, start_toy7, start_toy8, start_toy9, start_toy10, start_toy11, start_toy12, start_toy13, start_toy14, start_toy15, start_toy16]
+# for i, s in enumerate(toys):
+#     s.render_illustrate_figure(f"Figure{i+1}.png")
+
+# plt.imshow(start_toy16.get_image_matrix())
+# plt.show()
+
+start_toy16.render_illustrate_figure()
 _, _, _, edges = build_global_graph(start_toy16)
-# # 生成图
+# 生成图
 adj_list = edges_to_adjacency_list(edges)
 
 # 创建模拟实例
@@ -129,8 +135,8 @@ renderer.render_video(
     physics_iter_per_frame=3,
     fps=60
 )
-# renderer.run_interactive(
-#     sim
-# )
+renderer.run_interactive(
+    sim
+)
 
 renderer.close()
