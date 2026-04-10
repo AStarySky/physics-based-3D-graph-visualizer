@@ -204,6 +204,8 @@ class WalledSlidingToy(SlidingToy):
         ax.set_ylim(-BUFF, self.height + BUFF)
         ax.set_aspect('equal')
         ax.invert_yaxis()
+        x, y = np.meshgrid(np.arange(1, self.width), np.arange(1, self.height))
+        ax.scatter(x.flatten(), y.flatten(), c="gray")
         plt.savefig(filename, bbox_inches='tight', pad_inches=0.1, dpi=150)
 
 def plot_graph_and_states(adj, idx2state, N=90):
