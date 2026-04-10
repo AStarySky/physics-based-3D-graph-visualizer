@@ -41,7 +41,70 @@ start_toy6 = SlidingToy(
     np.array([[0, 0], [0, 2], [3, 0], [3, 2], [1, 0], [1, 2], [1, 3], [2, 3], [0, 4], [0, 5], [3, 5]], dtype=int)
 )
 
-_, _, _, edges = build_global_graph(start_toy6)
+start_toy7 = SlidingToy(
+    4, 6,
+    np.array([[2, 1], [1, 3], [1, 3], [1, 2], [3, 1], [1, 4], [1, 1]], dtype=int),
+    np.array([[1, 0], [3, 0], [1, 1], [3, 3], [1, 5], [2, 1], [1, 4]],dtype=int)
+)
+
+start_toy8 = SlidingToy(
+    4, 5,
+    np.array([[2, 2], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1]], dtype=int),
+    np.array([[1, 0], [0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [3, 0], [3, 1], [3, 2], [3, 3], [3, 4], [1, 2], [1, 3], [2, 2], [2, 3]],dtype=int)
+)
+
+start_toy9 = SlidingToy(
+    4, 5,
+    np.array([[2, 2], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [2, 1], [1, 1], [1, 1]], dtype=int),
+    np.array([[1, 0], [0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [3, 0], [3, 1], [3, 2], [3, 3], [3, 4], [1, 2], [1, 3], [2, 3]],dtype=int)
+)
+
+
+start_toy10 = WalledSlidingToy(
+    6, 6,
+    np.array([[3, 1], [1, 3], [2, 1], [1, 2], [2, 1], [1, 2], [1, 2], [1, 2], [2, 1], [3, 1]], dtype=int), 
+    np.array([[0, 0], [5, 0], [3, 2], [2, 2], [4, 3], [3, 3], [0, 4], [2, 4], [4, 4], [3, 5]], dtype=int)
+)
+
+start_toy11 = WalledSlidingToy(
+    6, 6,
+    np.array([[1, 3], [2, 1], [1, 3], [2, 1], [1, 2], [2, 1]], dtype=int),
+    np.array([[1, 0], [3, 0], [5, 0], [3, 2], [3, 3], [4, 4]], dtype=int)
+)
+
+start_toy12 = SlidingToy(
+    4, 5,
+    np.array([[2, 2], [2, 1], [2, 1], [1, 1], [1, 1], [1, 2], [1, 2], [2, 1], [2, 1]], dtype=int),
+    np.array([[0, 0], [2, 0], [2, 1], [0, 2], [1, 2], [0, 3], [1, 3], [2, 3], [2, 4]], dtype=int)
+)
+
+start_toy13 = SlidingToy(
+    5, 5,
+    np.array([[2, 1], [2, 1], [2, 2], [2, 2], [1, 3], [2, 1], [3, 1]], dtype=int),
+    np.array([[0, 0], [2, 0], [0, 1], [2, 1], [4, 0], [0, 3], [2, 3]], dtype=int)
+)
+
+start_toy14 = WalledSlidingToy(
+    6, 6,
+    np.array([[1, 3], [2, 1], [1, 2], [1, 2], [1, 2], [2, 1], [1, 3], [3, 1], [1, 2], [1, 2], [2, 1], [2, 1], [2, 1]], dtype=int),
+    np.array([[0, 0], [1, 0], [1, 1], [2, 1], [4, 0], [3, 2], [5, 1], [0, 3], [3, 3], [2, 4], [4, 4], [0, 5], [3, 5]], dtype=int)
+)
+
+start_toy15 = WalledSlidingToy(
+    6, 6,
+    np.array([[2, 1], [1, 3], [2, 1], [1, 3], [1, 3], [3, 1], [1, 2], [2, 1]], dtype=int),
+    np.array([[0, 0], [0, 1], [1, 2], [3, 1], [5, 0], [2, 5], [0, 4], [4, 4]], dtype=int)
+)
+
+start_toy16 = WalledSlidingToy(
+    6, 6,
+    np.array([[3, 1], [1, 2], [1, 2], [2, 1], [1, 3], [1, 3], [2, 1], [2, 1], [1, 2], [1, 2], [2, 1], [2, 1], [2, 1]]),
+    np.array([[0, 0], [3, 0], [0, 1], [1, 1], [4, 1], [5, 1], [2, 2], [0, 3], [2, 3], [1, 4], [4, 4], [2, 5], [4, 5]])
+)
+
+plt.imshow(start_toy16.get_image_matrix())
+plt.show()
+_, _, _, edges = build_global_graph(start_toy16)
 # # 生成图
 adj_list = edges_to_adjacency_list(edges)
 
@@ -56,14 +119,14 @@ sim = BFSGraphSimulation3D(
     intensity=4
 )
 
-renderer = GraphRenderer(window_size=(1920, 1080), visible=True, line_width=1.0, point_size=2.0)  # 离屏
+renderer = GraphRenderer(window_size=(1920, 1080), visible=True, line_width=1.0, point_size=2.5)  # 离屏
 # 导出视频
 renderer.render_video(
     sim,
-    "Graph6.mp4",
+    "Graph16.mp4",
     viewing_duration=10.0,   # 观赏10秒
     nodes_per_frame=100,       # 每帧添加4个节点
-    physics_iter_per_frame=6,
+    physics_iter_per_frame=3,
     fps=60
 )
 # renderer.run_interactive(
