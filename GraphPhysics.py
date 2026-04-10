@@ -31,7 +31,7 @@ def compute_repulsion_taichi(
             if i == j: continue
             
             diff = p_i - pos[j]
-            dist_sq = diff.norm_sq() + softening_sq
+            dist_sq = diff.norm_sqr() + softening_sq
             
             # 斥力公式优化：f = (k^2 / |r|^2) * r_vec
             f_i += (k_sq / dist_sq) * diff
@@ -124,7 +124,7 @@ class BFSGraphSimulation3D:
         # ---------- 斥力计算（Taichi GPU） ----------
         repulsion_forces = np.zeros((n, 3), dtype=np.float32)
         if n > 1:
-            compute_repulsion_taichi(pos, self.k_sq, repulsion_forces, pairs)
+            compute_repulsion_taichi(pos, repulsion_forces, pairs, self.k_sq, 1/ self.k)
         # 注意：Taichi 输出的 forces 已是 float32，后续可能需转换为 float64（若需要）
 
         # ---------- 引力计算（不变） ----------

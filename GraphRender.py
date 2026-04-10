@@ -5,7 +5,6 @@ import glm
 import numpy as np
 import math
 from VideoRecorder import AutoVideoRecorder
-import time
 
 def update_camera_distance_hybrid(points: np.ndarray,
                                   current_distance: float,
@@ -293,16 +292,16 @@ class GraphRenderer:
                 if recorder.phase.name == 'GROWTH':
                     print(f"  🌱 生长进度: {current_nodes}/{total_nodes} 节点 ({current_nodes/total_nodes*100:.1f}%)")
                 else:
-                    elapsed = time.time() - recorder.phase_start_time
-                    remaining = viewing_duration - elapsed
-                    print(f"  👁️  观赏阶段: {max(0, remaining):.1f}秒剩余")
+                    print(f"  👁️  观赏阶段: {recorder.viewing_duration:.1f}秒剩余")
         
         recorder.stop()
         self.auto_adjust_camera = original_auto_adjust
         self._original_camera_state = None
         print(f"\n✅ 视频已保存: {output_path}")
 
-    def run_interactive(self, sim):
+    def run_interactive(self, sim,
+                        nodes_per_frame: int = 2,
+                        physics_iter_per_frame: int = 6):
         """实时交互模式（有窗口）"""
         if not self.visible:
             print("警告：渲染器创建时 visible=False，无法交互。")
@@ -315,7 +314,10 @@ class GraphRenderer:
                 break
             
             # 可在此添加手动添加节点的逻辑，此处省略
-            sim.update_physics()
+            for _ in range(nodes_per_frame):
+                sim.add_next_bfs_node()
+            for _ in range(physics_iter_per_frame):
+                sim.update_physics()
             points = sim.get_positions_array()
             edges = sim.get_edge_vertices_array()
             

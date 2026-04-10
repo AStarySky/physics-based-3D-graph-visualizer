@@ -4,7 +4,6 @@ from OpenGL.GL import glReadPixels, GL_RGB, GL_UNSIGNED_BYTE, glReadBuffer, GL_F
 from typing import Optional
 import threading
 from collections import deque
-import time
 from enum import Enum
 
 class RenderPhase(Enum):
@@ -114,7 +113,6 @@ class AutoVideoRecorder:
             return self._get_status()
         
         self.current_nodes = current_node_count
-        current_time = time.time()
         
         if self.phase == RenderPhase.GROWTH:
             # 当所有节点都已激活时切换到观赏阶段
@@ -122,9 +120,8 @@ class AutoVideoRecorder:
                 self._switch_to_viewing()
                 
         elif self.phase == RenderPhase.VIEWING:
-            self.current_rotation += self.rotation_speed * delta_time
-            elapsed = current_time - self.phase_start_time
-            if elapsed >= self.viewing_duration:
+            self.viewing_duration -= delta_time
+            if self.viewing_duration < 0:
                 self._finish_rendering()
                 
         return self._get_status()
