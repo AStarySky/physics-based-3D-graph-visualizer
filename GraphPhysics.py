@@ -78,6 +78,12 @@ class BFSGraphSimulation3D:
         # 按节点插入顺序收集位置（顺序不重要，但需保持一致）
         return np.array([data['pos'] for data in self.active_nodes.values()], dtype=np.float32)
 
+    def get_max_vmag(self):
+        if not self.active_nodes:
+            return 0
+        # 按节点插入顺序收集位置（顺序不重要，但需保持一致）
+        return np.max([np.linalg.norm(data['vel']) for data in self.active_nodes.values()])
+
     def get_edge_vertices_array(self) -> np.ndarray:
         """返回用于 GL_LINES 的顶点数组：每条边两个端点顺序排列，形状 (M*2, 3)"""
         if not self.active_edges:
