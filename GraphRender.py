@@ -197,8 +197,8 @@ class GraphRenderer:
         self.camera_distance = update_camera_distance_hybrid(
             points, 
             self.camera_distance,
-            min_distance=5.0,
-            max_distance=200.0
+            min_distance=0.1,
+            max_distance=10000.0
         )
 
     def _render_frame(self):
