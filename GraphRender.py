@@ -8,7 +8,7 @@ from VideoRecorder import AutoVideoRecorder
 
 def update_camera_distance_hybrid(points: np.ndarray,
                                   current_distance: float,
-                                  min_distance: float = 5.0,
+                                  min_distance: float = 1.0,
                                   max_distance: float = 150.0) -> float:
     """
     混合方法：同时考虑节点数量和空间分布
@@ -224,7 +224,7 @@ class GraphRenderer:
             near_val, far_val = 10.0, -10.0 # 默认值
 
         glUniform1f(glGetUniformLocation(self.shader, "near"), near_val/2) 
-        glUniform1f(glGetUniformLocation(self.shader, "far"), far_val*2) 
+        glUniform1f(glGetUniformLocation(self.shader, "far"), far_val*3) 
         
         glUniform3fv(glGetUniformLocation(self.shader, "camLookDir"), 1, glm.value_ptr(cam_look_dir))
         glUniformMatrix4fv(glGetUniformLocation(self.shader, "projection"), 
@@ -283,7 +283,7 @@ class GraphRenderer:
         
         while recorder.is_recording:
             current_time = glfw.get_time()
-            delta_time = current_time - self.last_time
+            delta_time = 1/fps
             self.last_time = current_time
             
             current_nodes = len(sim.active_nodes)
@@ -291,12 +291,12 @@ class GraphRenderer:
             
             # 生长阶段：添加节点
             if recorder.should_add_nodes():
-                for _ in range(recorder.nodes_per_frame):
+                for _ in range(min(recorder.nodes_per_frame, current_nodes // 30 + 1)):
                     if not sim.add_next_bfs_node():
                         break
             
             # 物理步进
-            if recorder.phase.name == 'GROWTH':
+            if recorder.phase.name == 'GROWTH' or sim.get_max_vmag() > 4e-2:
                 for i in range(physics_iter_per_frame):
                     sim.update_physics()
             
