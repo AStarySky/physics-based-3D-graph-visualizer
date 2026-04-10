@@ -1,15 +1,18 @@
 import numpy as np
 import scipy.sparse as sp
 import copy
-from collections import deque
-import matplotlib.pyplot as plt
 import networkx as nx
-from mpl_toolkits.mplot3d import Axes3D
+from random import shuffle
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+from matplotlib.collections import PatchCollection
 
 UP = np.array([0, 1])
 DOWN = np.array([0, -1])
 LEFT = np.array([-1, 0])
 RIGHT = np.array([1, 0])
+BUFF = 0.1
 
 class SlidingToy:
     def __init__(self, width, height, box_sizes, box_positions):
@@ -80,6 +83,28 @@ class SlidingToy:
         for q, (dl, ur) in enumerate(zip(box_dl, box_ur)):
             has_block[dl[1]:ur[1], dl[0]:ur[0]] += np.prod(np.array([2, 3]) ** self.box_sizes[q])
         return has_block
+    
+    def render_illustrate_figure(self, filename='Figure.png'):
+        fig, ax = plt.subplots()
+        fig.patch.set_facecolor("#0B0B49")
+        ax.set_facecolor("#0B0B49")
+        ax.grid(True)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        for spine in ax.spines.values():
+            spine.set_edgecolor('white')
+            spine.set_linewidth(5)
+        patches = [Rectangle(xy=(coord[0]+BUFF, coord[1]+BUFF), width=width-2*BUFF, height=height-2*BUFF) for coord, (width, height) in zip(self.box_positions, self.box_sizes)]
+        shuffle(patches)
+        for i, patch in enumerate(patches):
+            patch.set(color=mpl.colormaps["hsv"](i / len(patches)))
+            ax.add_artist(patch)
+        ax.set_xlim(-BUFF, self.width + BUFF)
+        ax.set_ylim(-BUFF, self.height + BUFF)
+        ax.set_aspect('equal')
+        ax.invert_yaxis()
+        plt.savefig(filename, bbox_inches='tight', pad_inches=0.1, dpi=150)
+        
         
 def encode_state(slidingtoy):
     """把SlidingToy的状态转为tuple（可hash）"""
@@ -331,31 +356,3 @@ def force_directed_layout(adj_matrix, edges, dim=3, iterations=200, k_s=1, k_r=0
     pos = pos @ eigvecs
     
     return pos
-
-# start_toy = SlidingToy(
-#     4, 5,
-#     np.array([[1, 2], [1, 2], [1, 2], [1, 2], [2, 2], [2, 1], [1, 1], [1, 1], [1, 1], [1, 1]], dtype=int),
-#     np.array([[0, 0], [0, 2], [3, 0], [3, 2], [1, 0], [1, 2], [0, 4], [3, 4], [1, 3], [2, 3]], dtype=int)
-# )
-
-# plt.imshow(start_toy.get_image_matrix())
-# plt.show()
-
-# mat, state2idx, idx2state, edges = build_global_graph(start_toy)
-
-# final_str = "{"+",".join(map(lambda m: f"{m[0]}<->{m[1]}", edges))+"}"
-
-# import pyperclip
-# pyperclip.copy(final_str)
-# print(final_str)
-
-# vet = force_directed_layout(mat, edges, iterations=100, k_r = 4, k_s = 0.5, dt=0.05)
-
-# fig = plt.figure(figsize=(8, 8))
-# ax = fig.add_subplot(111, projection="3d")
-
-# for e in edges:
-#     if e[0] < e[1]:
-#         ax.plot(*vet[[e[0], e[1]]].T, color="black", linewidth=0.5, alpha=0.6)
-# ax.set_aspect("equal")
-# plt.show()
