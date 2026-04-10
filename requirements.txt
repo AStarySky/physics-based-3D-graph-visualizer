@@ -1,0 +1,18 @@
+# 核心物理引擎与高性能计算
+taichi>=1.7.0
+
+# 基础数学与科学计算
+numpy
+scipy
+networkx
+
+# 图形渲染与交互
+glfw
+PyOpenGL
+PyGLM
+
+# 图像处理与视频导出
+opencv-python
+
+# 辅助工具（可选，如果你在 Klotski.py 中使用了绘图调试）
+matplotlib
