@@ -210,8 +210,7 @@ class AutoVideoRecorder:
             phase_text = f"GROWTH ({self.current_nodes}/{self.total_nodes} nodes)"
             color = (0, 255, 0)
         elif self.phase == RenderPhase.VIEWING:
-            remaining = self.viewing_duration - (time.time() - self.phase_start_time)
-            phase_text = f"VIEWING ({max(0, remaining):.1f}s remaining)"
+            phase_text = f"VIEWING ({self.viewing_duration:.1f}s remaining)"
             color = (255, 165, 0)
         else:
             phase_text = "FINISHED"
