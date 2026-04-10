@@ -184,6 +184,27 @@ class WalledSlidingToy(SlidingToy):
                 WalledSlidingToy(self.width, self.height, self.box_sizes, starter)
             )
         return neighbours
+    
+    def render_illustrate_figure(self, filename='Figure.png'):
+        fig, ax = plt.subplots()
+        fig.patch.set_facecolor("#0B0B49")
+        ax.set_facecolor("#0B0B49")
+        ax.grid(True)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        for spine in ax.spines.values():
+            spine.set_edgecolor('white')
+            spine.set_linewidth(5)
+        patches = [Rectangle(xy=(coord[0]+BUFF, coord[1]+BUFF), width=width-2*BUFF, height=height-2*BUFF) for coord, (width, height) in zip(self.box_positions, self.box_sizes)]
+        shuffle(patches)
+        for i, patch in enumerate(patches):
+            patch.set(color=mpl.colormaps["hsv"](i / len(patches)))
+            ax.add_artist(patch)
+        ax.set_xlim(-BUFF, self.width + BUFF)
+        ax.set_ylim(-BUFF, self.height + BUFF)
+        ax.set_aspect('equal')
+        ax.invert_yaxis()
+        plt.savefig(filename, bbox_inches='tight', pad_inches=0.1, dpi=150)
 
 def plot_graph_and_states(adj, idx2state, N=90):
     """
