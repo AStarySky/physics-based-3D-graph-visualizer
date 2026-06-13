@@ -1,6 +1,5 @@
 import numpy as np
 import scipy.sparse as sp
-import copy
 import networkx as nx
 from random import shuffle
 import matplotlib as mpl
@@ -21,6 +20,11 @@ class SlidingToy:
         self.box_sizes = box_sizes
         self.box_positions = box_positions
         self.covering_matrix = self.get_covering_matrix(box_positions, box_positions + box_sizes)
+        self.block_fingerprints = 2**box_sizes[:,0] * 3**box_sizes[:,1]
+        self._cached_id_matrix = self._compute_identifier_matrix()
+        self._cached_id_tuple = tuple(map(tuple, self._cached_id_matrix))
+        # 缓存状态哈希值，避免重复计算
+        self._hash_code = hash(self._cached_id_tuple)
     
     def __eq__(self, a):
         return (self.get_identifier_matrix() == a.get_identifier_matrix()).all()
@@ -61,7 +65,7 @@ class SlidingToy:
                     neigbour_shift.append((q, RIGHT))
         neighbours = []
         for shift in neigbour_shift:
-            starter = copy.deepcopy(self.box_positions)
+            starter = self.box_positions.copy()
             starter[shift[0]] += shift[1]
             neighbours.append(
                 SlidingToy(self.width, self.height, self.box_sizes, starter)
@@ -77,11 +81,16 @@ class SlidingToy:
         return has_block
 
     def get_identifier_matrix(self):
+        """返回当前状态标识矩阵（使用缓存，避免重复构建）"""
+        return self._cached_id_matrix
+
+    def _compute_identifier_matrix(self):
+        """实际计算标识矩阵"""
         has_block = np.zeros((self.height, self.width))
         box_dl = self.box_positions
         box_ur = self.box_positions + self.box_sizes
         for q, (dl, ur) in enumerate(zip(box_dl, box_ur)):
-            has_block[dl[1]:ur[1], dl[0]:ur[0]] += np.prod(np.array([2, 3]) ** self.box_sizes[q])
+            has_block[dl[1]:ur[1], dl[0]:ur[0]] += self.block_fingerprints[q]
         return has_block
     
     def render_illustrate_figure(self, filename='Figure.png'):
@@ -107,8 +116,8 @@ class SlidingToy:
         
         
 def encode_state(slidingtoy):
-    """把SlidingToy的状态转为tuple（可hash）"""
-    return tuple(map(tuple, slidingtoy.get_identifier_matrix()))
+    """把SlidingToy的状态转为tuple（可hash）- 使用缓存的标识矩阵，O(1)"""
+    return slidingtoy._cached_id_tuple
 
 def build_global_graph(start_toy, maxiter = np.inf):
     """
@@ -178,7 +187,7 @@ class WalledSlidingToy(SlidingToy):
                         neigbour_shift.append((q, RIGHT))
         neighbours = []
         for shift in neigbour_shift:
-            starter = copy.deepcopy(self.box_positions)
+            starter = self.box_positions.copy()
             starter[shift[0]] += shift[1]
             neighbours.append(
                 WalledSlidingToy(self.width, self.height, self.box_sizes, starter)

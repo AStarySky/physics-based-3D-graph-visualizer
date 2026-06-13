@@ -57,8 +57,11 @@ class GraphRenderer:
         
         # 控制标志
         self.auto_adjust_camera = True
+        self.auto_align_camera_pca = True
         self.mouse_pressed = False
         self.last_mouse_pos = glm.vec2(0.0)
+        self.camera_up = glm.vec3(0.0, 1.0, 0.0)
+        self._pca_n_points = 0
         
         # 颜色
         self.point_color = glm.vec3(0.2, 0.8, 1.0)
@@ -153,6 +156,13 @@ class GraphRenderer:
         glDeleteShader(vs)
         glDeleteShader(fs)
 
+        self.uniform_near = glGetUniformLocation(self.shader, "near")
+        self.uniform_far = glGetUniformLocation(self.shader, "far")
+        self.uniform_camLookDir = glGetUniformLocation(self.shader, "camLookDir")
+        self.uniform_projection = glGetUniformLocation(self.shader, "projection")
+        self.uniform_view = glGetUniformLocation(self.shader, "view")
+        self.uniform_color = glGetUniformLocation(self.shader, "color")
+
     def _init_buffers(self):
         self.point_vao = glGenVertexArrays(1)
         self.point_vbo = glGenBuffers(1)
@@ -189,17 +199,53 @@ class GraphRenderer:
             self.camera_distance * math.sin(pitch_rad),
             self.camera_distance * math.sin(yaw_rad) * math.cos(pitch_rad)
         )
-        return glm.lookAt(pos, self.camera_target, glm.vec3(0.0, 1.0, 0.0))
+        return glm.lookAt(pos, self.camera_target, self.camera_up)
 
     def _auto_adjust_camera_distance(self, points: np.ndarray):
         if len(points) == 0:
             return
         self.camera_distance = update_camera_distance_hybrid(
-            points, 
+            points,
             self.camera_distance,
             min_distance=0.1,
             max_distance=10000.0
         )
+
+    def _auto_align_camera(self, points: np.ndarray):
+        n = len(points)
+        if n < 3:
+            return
+        if self._pca_n_points != n:
+            centroid = np.mean(points, axis=0)
+            centered = points - centroid
+            cov = np.cov(centered, rowvar=False)
+            eigvals, eigvecs = np.linalg.eigh(cov)
+            order = np.argsort(eigvals)[::-1]
+            eigvecs = eigvecs[:, order]
+            self._pca_eigvecs = eigvecs
+            self._pca_n_points = n
+        v1 = self._pca_eigvecs[:, 1]
+        v2 = self._pca_eigvecs[:, 2]
+        yaw_rad = math.radians(self.camera_yaw)
+        pitch_rad = math.radians(self.camera_pitch)
+        current_look = glm.vec3(
+            math.cos(yaw_rad) * math.cos(pitch_rad),
+            math.sin(pitch_rad),
+            math.sin(yaw_rad) * math.cos(pitch_rad)
+        )
+        target_look = glm.vec3(v1[0], v1[1], v1[2])
+        if glm.dot(current_look, target_look) < 0:
+            target_look = -target_look
+        alpha = 0.04
+        new_look = glm.lerp(current_look, target_look, alpha)
+        new_look = glm.normalize(new_look)
+        self.camera_yaw = math.degrees(math.atan2(new_look.z, new_look.x))
+        self.camera_pitch = math.degrees(math.asin(max(-1.0, min(1.0, new_look.y))))
+        target_up = glm.vec3(v2[0], v2[1], v2[2])
+        if glm.dot(self.camera_up, target_up) < 0:
+            target_up = -target_up
+        self.camera_up = glm.lerp(self.camera_up, target_up, alpha)
+        self.camera_up = glm.normalize(self.camera_up)
 
     def _render_frame(self):
         """执行一次渲染（不交换缓冲区）"""
@@ -223,25 +269,23 @@ class GraphRenderer:
         else:
             near_val, far_val = 10.0, -10.0 # 默认值
 
-        glUniform1f(glGetUniformLocation(self.shader, "near"), near_val/2) 
-        glUniform1f(glGetUniformLocation(self.shader, "far"), far_val*3) 
-        
-        glUniform3fv(glGetUniformLocation(self.shader, "camLookDir"), 1, glm.value_ptr(cam_look_dir))
-        glUniformMatrix4fv(glGetUniformLocation(self.shader, "projection"), 
+        glUniform1f(self.uniform_near, near_val/2)
+        glUniform1f(self.uniform_far, far_val*3)
+
+        glUniform3fv(self.uniform_camLookDir, 1, glm.value_ptr(cam_look_dir))
+        glUniformMatrix4fv(self.uniform_projection,
                         1, GL_FALSE, glm.value_ptr(projection))
-        glUniformMatrix4fv(glGetUniformLocation(self.shader, "view"), 
+        glUniformMatrix4fv(self.uniform_view,
                         1, GL_FALSE, glm.value_ptr(view))
-        
-        # 绘制边
+
         if hasattr(self, 'edge_vertex_count') and self.edge_vertex_count > 0:
-            glUniform3fv(glGetUniformLocation(self.shader, "color"), 
+            glUniform3fv(self.uniform_color,
                         1, glm.value_ptr(self.edge_color))
             glBindVertexArray(self.edge_vao)
             glDrawArrays(GL_LINES, 0, self.edge_vertex_count)
-        
-        # 绘制点
+
         if hasattr(self, 'point_count') and self.point_count > 0:
-            glUniform3fv(glGetUniformLocation(self.shader, "color"), 
+            glUniform3fv(self.uniform_color,
                         1, glm.value_ptr(self.point_color))
             glBindVertexArray(self.point_vao)
             glDrawArrays(GL_POINTS, 0, self.point_count)
@@ -286,7 +330,7 @@ class GraphRenderer:
             delta_time = 1/fps
             self.last_time = current_time
             
-            current_nodes = len(sim.active_nodes)
+            current_nodes = len(sim._idx_to_node)
             status = recorder.update(delta_time, current_nodes)
             
             # 生长阶段：添加节点
@@ -306,6 +350,8 @@ class GraphRenderer:
             # 自动调整相机（仅生长阶段）
             if recorder.phase.name == 'GROWTH' and self.auto_adjust_camera:
                 self._auto_adjust_camera_distance(points)
+                if self.auto_align_camera_pca:
+                    self._auto_align_camera(points)
             
             # 观赏阶段：保存初始相机状态并应用旋转
             # if recorder.phase.name == 'VIEWING':
@@ -360,7 +406,9 @@ class GraphRenderer:
             
             if self.auto_adjust_camera:
                 self._auto_adjust_camera_distance(points)
-            
+                if self.auto_align_camera_pca:
+                    self._auto_align_camera(points)
+
             self.update_buffers(points, edges)
             self._render_frame()
             glfw.swap_buffers(self.window)

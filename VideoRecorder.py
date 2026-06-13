@@ -27,6 +27,7 @@ class AutoVideoRecorder:
         self.frame_queue = deque(maxlen=200)
         self.writer_thread: Optional[threading.Thread] = None
         self.stop_writer = False
+        self.frame_cond = threading.Condition()
         
         # 渲染阶段控制
         self.phase = RenderPhase.GROWTH
@@ -192,18 +193,18 @@ class AutoVideoRecorder:
         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)   # 转为 BGR
         
         self._add_overlay(frame)
-        
+
         if len(self.frame_queue) < self.frame_queue.maxlen - 1:
             self.frame_queue.append(frame)
             self.frame_count += 1
             self.total_frames += 1
+            with self.frame_cond:
+                self.frame_cond.notify()
     
     def _add_overlay(self, frame: np.ndarray):
         """在帧上绘制信息叠加层"""
         h, w = frame.shape[:2]
-        overlay = frame.copy()
-        cv2.rectangle(overlay, (0, 0), (w, 60), (0, 0, 0), -1)
-        frame[:] = cv2.addWeighted(frame, 0.7, overlay, 0.3, 0)
+        frame[:60, :] = (frame[:60, :].astype(np.float32) * 0.7).astype(np.uint8)
         
         status = self._get_status()
         if self.phase == RenderPhase.GROWTH:
@@ -234,19 +235,21 @@ class AutoVideoRecorder:
         
     
     def _writer_loop(self):
-        """后台线程：将队列中的帧写入视频文件"""
         while not self.stop_writer or self.frame_queue:
+            with self.frame_cond:
+                while not self.frame_queue and not self.stop_writer:
+                    self.frame_cond.wait(timeout=1.0)
             if self.frame_queue:
                 frame = self.frame_queue.popleft()
                 if self.writer:
                     self.writer.write(frame)
-            else:
-                time.sleep(0.001)
     
     def stop(self):
         """停止录制并释放资源"""
         self.is_recording = False
         self.stop_writer = True
+        with self.frame_cond:
+            self.frame_cond.notify()
         if self.writer_thread:
             self.writer_thread.join(timeout=5.0)
         while self.frame_queue:

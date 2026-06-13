@@ -1,3 +1,5 @@
+import os
+import sys
 from GraphHelper import *
 from GraphPhysics import *
 from GraphRender import *
@@ -109,8 +111,8 @@ start_toy16 = WalledSlidingToy(
 # plt.imshow(start_toy16.get_image_matrix())
 # plt.show()
 
-start_toy16.render_illustrate_figure()
-_, _, _, edges = build_global_graph(start_toy16)
+start_toy.render_illustrate_figure()
+_, _, _, edges = build_global_graph(start_toy)
 # 生成图
 adj_list = edges_to_adjacency_list(edges)
 
@@ -126,10 +128,13 @@ sim = BFSGraphSimulation3D(
 )
 
 renderer = GraphRenderer(window_size=(1920, 1080), visible=True, line_width=1.0, point_size=2.5)  # 离屏
-# 导出视频
-renderer.render_video(
-    sim,
-    "Graph16.mp4",
+output_video = "Graph1.mp4"
+if os.path.exists(output_video) and '--force' not in sys.argv:
+    print("Video {} already exists, skipping (use --force to re-render)".format(output_video))
+else:
+    renderer.render_video(
+        sim,
+        output_video,
     viewing_duration=10.0,   # 观赏10秒
     nodes_per_frame=100,       # 每帧添加4个节点
     physics_iter_per_frame=3,

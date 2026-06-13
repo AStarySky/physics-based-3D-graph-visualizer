@@ -6,8 +6,7 @@ from collections import deque
 import taichi as ti
 
 # 选择后端：可以自动检测，或强制指定（如 ti.cuda, ti.vulkan, ti.metal, ti.cpu）
-ti.init(arch=ti.vulkan, default_fp=ti.f32)  # 如果无 GPU 则回退到 CPU
-import taichi as ti
+ti.init(arch=ti.vulkan, default_fp=ti.f32)
 
 @ti.kernel
 def compute_repulsion_taichi(
@@ -26,17 +25,16 @@ def compute_repulsion_taichi(
     for i in range(n):
         p_i = pos[i]
         f_i = ti.Vector([0.0, 0.0, 0.0])
-        
-        for j in range(n):
-            if i == j: continue
-            
+
+        for j in range(i + 1, n):
             diff = p_i - pos[j]
             dist_sq = diff.norm_sqr() + softening_sq
-            
-            # 斥力公式优化：f = (k^2 / |r|^2) * r_vec
-            f_i += (k_sq / dist_sq) * diff
-            
-        forces[i] = f_i
+
+            f = (k_sq / dist_sq) * diff
+            f_i += f
+            forces[j] -= f
+
+        forces[i] += f_i
 
     # 2. 计算引力 (基于边)
     # 使用 atomic_add 因为多个边可能共享同一个节点
@@ -56,104 +54,97 @@ def compute_repulsion_taichi(
 
 # --- 1. 3D 物理引擎 ---
 class BFSGraphSimulation3D:
-    def __init__(self, adjacency_list, root_node, k=25.0, gravity=0.02, damping=0.8, time_step=0.15, intensity = 1.0):
+    def __init__(self, adjacency_list, root_node, k=25.0, gravity=0.02, damping=0.8, time_step=0.15, intensity=1.0):
         self.adj = adjacency_list
         self.root = root_node
-        self.k, self.k_sq = k, k*k
+        self.k, self.k_sq = k, k * k
         self.gravity = gravity
         self.damping = damping
         self.dt = time_step
         self.intensity = intensity
-        
-        # 3D 坐标与速度
-        self.active_nodes = {root_node: {'pos': np.array([0.0, 0.0, 0.0]), 'vel': np.array([0.0, 0.0, 0.0])}}
+
+        self.pos_array = np.array([[0.0, 0.0, 0.0]], dtype=np.float64)
+        self.vel_array = np.array([[0.0, 0.0, 0.0]], dtype=np.float64)
+        self._node_to_idx = {root_node: 0}
+        self._idx_to_node = [root_node]
+
         self.active_edges = set()
+        self.pairs_array = np.empty((0, 2), dtype=np.int32)
+
         self.bfs_queue = deque([root_node])
         self.visited = {root_node}
+        self._max_vmag = 0.0
     
     def get_positions_array(self) -> np.ndarray:
-        """返回当前所有活动节点位置的 (N,3) numpy 数组，dtype=float32"""
-        if not self.active_nodes:
-            return np.empty((0, 3), dtype=np.float32)
-        # 按节点插入顺序收集位置（顺序不重要，但需保持一致）
-        return np.array([data['pos'] for data in self.active_nodes.values()], dtype=np.float32)
+        return self.pos_array.astype(np.float32)
 
     def get_max_vmag(self):
-        if not self.active_nodes:
-            return 0
-        # 按节点插入顺序收集位置（顺序不重要，但需保持一致）
-        return np.max([np.linalg.norm(data['vel']) for data in self.active_nodes.values()])
+        return self._max_vmag
 
     def get_edge_vertices_array(self) -> np.ndarray:
-        """返回用于 GL_LINES 的顶点数组：每条边两个端点顺序排列，形状 (M*2, 3)"""
         if not self.active_edges:
             return np.empty((0, 3), dtype=np.float32)
         vertices = []
         for u, v in self.active_edges:
-            # 确保边两端节点均存在（理论上一定存在）
-            if u in self.active_nodes and v in self.active_nodes:
-                vertices.append(self.active_nodes[u]['pos'])
-                vertices.append(self.active_nodes[v]['pos'])
+            if u in self._node_to_idx and v in self._node_to_idx:
+                idx_u = self._node_to_idx[u]
+                idx_v = self._node_to_idx[v]
+                vertices.append(self.pos_array[idx_u])
+                vertices.append(self.pos_array[idx_v])
         if not vertices:
             return np.empty((0, 3), dtype=np.float32)
         return np.array(vertices, dtype=np.float32)
 
     def add_next_bfs_node(self):
-        if not self.bfs_queue: return False
+        if not self.bfs_queue:
+            return False
         u = self.bfs_queue.popleft()
         if u in self.adj:
             for v in self.adj[u]:
-                if v not in self.visited:
+                is_new = v not in self.visited
+                if is_new:
                     self.visited.add(v)
                     self.bfs_queue.append(v)
-                    parent_pos = self.active_nodes[u]['pos']
-                    # 在父节点附近产生，给予 3D 随机扰动
+                    idx_u = self._node_to_idx[u]
+                    parent_pos = self.pos_array[idx_u]
                     random_dir = np.random.normal(0, 1, 3)
                     random_dir /= np.linalg.norm(random_dir)
-                    self.active_nodes[v] = {
-                        'pos': parent_pos + random_dir * self.k, 
-                        'vel': np.zeros(3)
-                    }
-                self.active_edges.add(tuple(sorted((u, v))))
+                    self.pos_array = np.vstack([self.pos_array, parent_pos + random_dir * self.k])
+                    self.vel_array = np.vstack([self.vel_array, np.zeros((1, 3))])
+                    self._node_to_idx[v] = len(self._idx_to_node)
+                    self._idx_to_node.append(v)
+
+                edge_key = tuple(sorted((u, v)))
+                if edge_key not in self.active_edges:
+                    self.active_edges.add(edge_key)
+                    idx_u = self._node_to_idx[u]
+                    idx_v = self._node_to_idx[v]
+                    self.pairs_array = np.vstack([self.pairs_array, np.array([[idx_u, idx_v]], dtype=np.int32)])
         return True
 
     def update_physics(self):
-        nodes = list(self.active_nodes.keys())
-        n = len(nodes)
+        n = len(self._idx_to_node)
         if n == 0:
             return
 
-        pos = np.array([self.active_nodes[node]['pos'] for node in nodes], dtype=np.float32)
-        node_to_idx = {node: i for i, node in enumerate(nodes)}
-        pairs = np.array([[node_to_idx[i], node_to_idx[j]] for i, j in self.active_edges], dtype=np.int32)
+        pos_f32 = self.pos_array.astype(np.float32)
 
-        # ---------- 斥力计算（Taichi GPU） ----------
         repulsion_forces = np.zeros((n, 3), dtype=np.float32)
-        if n > 1:
-            compute_repulsion_taichi(pos, repulsion_forces, pairs, self.k_sq, 1/ self.k)
-        # 注意：Taichi 输出的 forces 已是 float32，后续可能需转换为 float64（若需要）
+        if n > 1 and len(self.pairs_array) > 0:
+            compute_repulsion_taichi(pos_f32, repulsion_forces, self.pairs_array, self.k_sq, 1.0 / self.k)
 
-        # ---------- 引力计算（不变） ----------
-        # attraction_forces = np.zeros((n, 3))
-        # for u, v in self.active_edges:
-        #     idx_u, idx_v = node_to_idx[u], node_to_idx[v]
-        #     diff = pos[idx_u] - pos[idx_v]
-        #     dist = np.linalg.norm(diff) + 0.1
-        #     force_mag = (dist**2) / self.k
-        #     force_vec = (diff / dist) * force_mag
-        #     attraction_forces[idx_u] -= force_vec
-        #     attraction_forces[idx_v] += force_vec
+        total_forces = repulsion_forces.astype(np.float64) + self.gravity * (-self.pos_array)
 
-        # ---------- 重力与状态更新 ----------
-        total_forces = repulsion_forces.astype(np.float64) + self.gravity * (-pos)
+        self.vel_array = (self.vel_array + total_forces * self.dt * self.intensity) * self.damping
 
-        for i, node in enumerate(nodes):
-            data = self.active_nodes[node]
-            data['vel'] = (data['vel'] + total_forces[i] * self.dt * self.intensity) * self.damping
-            velo_mag = np.linalg.norm(data['vel'])
-            if velo_mag > 10:
-                data['vel'] = data['vel'] / velo_mag * 10
-            data['pos'] += data['vel'] * self.dt 
+        vel_mags = np.linalg.norm(self.vel_array, axis=1)
+        over_limit = vel_mags > 10.0
+        if over_limit.any():
+            self.vel_array[over_limit] = (self.vel_array[over_limit].T / vel_mags[over_limit] * 10.0).T
+            vel_mags[over_limit] = 10.0
+        self._max_vmag = float(np.max(vel_mags)) if n > 0 else 0.0
+
+        self.pos_array += self.vel_array * self.dt 
             # if len()
          
 

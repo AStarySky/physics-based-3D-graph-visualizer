@@ -1,11 +1,47 @@
+# 环境文件
 .env
 *.local
 
+# 操作系统文件
 .DS_Store
 Thumbs.db
 
+# IDE
 .vscode/
 
+# Python 缓存
 __pycache__/
+
+# 视频文件（体积大，不上传）
 *.mp4
+
+# 图片文件（仅排除自动生成的截图以外的图片）
 *.png
+!Figure*.png
+!screenshot_*.png
+!Screenshot_*.png
+
+# LaTeX 编译副产品
+*.aux
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.xdv
+*.acn
+*.acr
+*.alg
+*.glg
+*.glo
+*.gls
+*.ist
+*.bbl
+*.blg
+*.bcf
+*.run.xml
+*.dvi
+*.ps
