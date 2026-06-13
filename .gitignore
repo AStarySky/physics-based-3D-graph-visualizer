@@ -17,9 +17,9 @@ __pycache__/
 
 # 图片文件（仅排除自动生成的截图以外的图片）
 *.png
-!Figure*.png
-!screenshot_*.png
-!Screenshot_*.png
+# Figure*.png
+# !screenshot_*.png
+# !Screenshot_*.png
 
 # LaTeX 编译副产品
 *.aux
