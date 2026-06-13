@@ -6,7 +6,7 @@
 [![YouTube](https://img.shields.io/badge/YouTube-Demo%20Video-FF0000)](https://www.youtube.com/watch?v=4orthiDjWME)
 [![GitHub](https://img.shields.io/badge/GitHub-Source%20Code-181717)](https://github.com/AStarySky/physics-based-3D-graph-visualizer)
 
-> 灵感来源于 [twoswap - The 8 Elements of a Graph](https://www.youtube.com/watch?v=YGLNyHd2w10)
+> 灵感来源于 [twoswap - I solved Klotski](https://www.youtube.com/watch?v=YGLNyHd2w10)
 
 ## Screenshots
 
